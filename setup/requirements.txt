@@ -1,0 +1,16 @@
+numpy
+scipy
+tqdm
+torchvision
+torch
+torchgeo
+
+# to read WKT
+shapely
+# to read geojson
+# json
+geojson
+ipykernel # to work directly within this env in jupyter
+
+# Geospatial Data Abstraction library
+GDAL
