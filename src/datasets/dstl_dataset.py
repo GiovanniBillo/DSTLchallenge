@@ -3,6 +3,57 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 from src.config import DATA_DIR, N_CLS
+import random
+
+class DSTLPatchFromFolderDataset(Dataset):
+    def __init__(self, image_dir, mask_dir, patch_size=160, thresholds=None, augment=True, n_samples=10000):
+        self.image_dir = image_dir
+        self.mask_dir = mask_dir
+        self.patch_size = patch_size
+        self.thresholds = thresholds
+        self.augment = augment
+        self.n_samples = n_samples
+
+        self.image_files = sorted(os.listdir(image_dir))
+        self.mask_files = sorted(os.listdir(mask_dir))
+        assert len(self.image_files) == len(self.mask_files), "Image and mask count mismatch."
+
+        self.n_classes = np.load(os.path.join(mask_dir, self.mask_files[0])).shape[-1]
+        if self.thresholds is None:
+            self.thresholds = [0.05] * self.n_classes
+
+    def __len__(self):
+        return self.n_samples
+
+    def __getitem__(self, idx):
+        # Pick a random image/mask pair
+        i = random.randint(0, len(self.image_files) - 1)
+        img = np.load(os.path.join(self.image_dir, self.image_files[i]))  # (H, W, C)
+        msk = np.load(os.path.join(self.mask_dir, self.mask_files[i]))    # (H, W, N_CLS)
+
+        H, W = img.shape[:2]
+        xm, ym = H - self.patch_size, W - self.patch_size
+
+        # Try multiple times to get a patch with relevant class content
+        for _ in range(10):
+            xc, yc = random.randint(0, xm), random.randint(0, ym)
+            im = img[xc:xc+self.patch_size, yc:yc+self.patch_size]
+            ms = msk[xc:xc+self.patch_size, yc:yc+self.patch_size]
+
+            for j in range(self.n_classes):
+                if np.sum(ms[:, :, j]) / (self.patch_size ** 2) > self.thresholds[j]:
+                    if self.augment:
+                        if random.random() > 0.5:
+                            im, ms = im[::-1], ms[::-1]
+                        if random.random() > 0.5:
+                            im, ms = im[:, ::-1], ms[:, ::-1]
+                    x = (np.transpose(im, (2, 0, 1)) * 2 - 1).astype(np.float32)
+                    y = np.transpose(ms, (2, 0, 1)).astype(np.float32)
+                    return torch.tensor(x), torch.tensor(y)
+
+        # fallback if no patch passed threshold
+        return self.__getitem__(idx)
+
 
 class DSTLDataset(Dataset):
     def __init__(self, image_dir, mask_dir, transform=None):

@@ -20,16 +20,7 @@ import shapely.wkt
 import shapely.affinity
 from collections import defaultdict
 
-from src.config import DATA_DIR, N_CLS
-
-N_CLS = 10
-RAW_DATA_DIR = os.path.join(DATA_DIR, 'dstl-satellite-imagery-feature-detection')
-DF = pd.read_csv(RAW_DATA_DIR+ '/train_wkt_v4.csv')
-GS = pd.read_csv(RAW_DATA_DIR+ '/grid_sizes.csv', names=['ImageId', 'Xmax', 'Ymin'], skiprows=1)
-SB = pd.read_csv(os.path.join(RAW_DATA_DIR, 'sample_submission.csv'))
-ISZ = 160
-smooth = 1e-12
-
+from src.config import DATA_DIR, N_CLS, RAW_DATA_DIR, DF, GS, SB, ISZ, smooth
 
 def _convert_coordinates_to_raster(coords, img_size, xymax):    
     if DEBUG_MODE:
@@ -648,7 +639,7 @@ def check_predict(id='6120_2_3'):
 
 
 if __name__ == '__main__':
-    # stick_all_train()
+    stick_all_train()
     stick_single_train()
     make_val()
     # print ("--train start")

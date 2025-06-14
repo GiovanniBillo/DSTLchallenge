@@ -6,7 +6,7 @@ from tqdm import tqdm
 import numpy as np
 from src.config import DATA_DIR, N_CLS
 from src.models.unet import UNet
-from src.datasets.dstl_dataset import DSTLDataset, DSTLDatasetFromArrays  # For folder-based dataset
+from src.datasets.dstl_dataset import DSTLDataset, DSTLDatasetFromArrays, DSTLPatchFromFolderDataset
 
 
 def train_model(dataset, epochs=5, batch_size=8, lr=1e-3):
@@ -37,14 +37,19 @@ def train_model(dataset, epochs=5, batch_size=8, lr=1e-3):
 if __name__ == "__main__":
     # Choose dataset type here:
     use_array = False
+    use_patches = True
 
     if use_array:
         x_path = os.path.join(DATA_DIR, f"x_trn_{N_CLS}.npy")
         y_path = os.path.join(DATA_DIR, f"y_trn_{N_CLS}.npy")
         dataset = DSTLDatasetFromArrays(x_path, y_path)
+    if use_patches:
+        image_dir = os.path.join(DATA_DIR, "processed/train/images")
+        mask_dir = os.path.join(DATA_DIR, "processed/train/masks")
+        dataset = DSTLPatchFromFolderDataset(image_dir, mask_dir)
     else:
-        image_dir = os.path.join(DATA_DIR, "x_patches")
-        mask_dir = os.path.join(DATA_DIR, "y_patches")
+        image_dir = os.path.join(DATA_DIR, "processed/train/images")
+        mask_dir = os.path.join(DATA_DIR, "processed/train/masks")
         dataset = DSTLDataset(image_dir, mask_dir)
 
     print(f"Dataset size: {len(dataset)}")
