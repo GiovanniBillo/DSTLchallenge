@@ -1,5 +1,5 @@
 # DSTLchallenge
-Completing this challenge as a final project for the Deep Learning course at the University of Trieste, summer 2025.
+Completing the [DSTL Satellite Imagery Feature Detection Challenge](https://www.kaggle.com/c/dstl-satellite-imagery-feature-detection/data) as a final project for the Deep Learning course at the University of Trieste, summer 2025.
 
 # Setup 
 This setup is quite involved
