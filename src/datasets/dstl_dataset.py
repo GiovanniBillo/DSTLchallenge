@@ -35,6 +35,7 @@ class DSTLPatchFromFolderDataset(Dataset):
         xm, ym = H - self.patch_size, W - self.patch_size
 
         # Try multiple times to get a patch with relevant class content
+        # TODO: should perhaos divide this into a separate function get_patches
         for _ in range(10):
             xc, yc = random.randint(0, xm), random.randint(0, ym)
             im = img[xc:xc+self.patch_size, yc:yc+self.patch_size]
