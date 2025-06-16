@@ -4,15 +4,40 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import numpy as np
-from src.config import DATA_DIR, N_CLS
+from src.config import DATA_DIR, N_CLS, PRETRAINED_VIT_PATH, IN_CHANS
 from src.models.unet import UNet
 from src.datasets.dstl_dataset import DSTLDataset, DSTLDatasetFromArrays, DSTLPatchFromFolderDataset
 from src.utils.loss_utils import JaccardLoss, BCEJaccardLoss # 2 alternatives for loss, have to see which one is better
-from src.models.CustomViT import CustomViT
+from src.models.CustomViT import CustomViT, CustomPretrainedViT
+import argparse
+
+parser=argparse.ArgumentParser(description="argument parser for train")
+parser.add_argument("train_models")
+args=parser.parse_args()
+
+# function to modify ViT first layer to accept 8-channel images instead of only 3 !!! experimental
+def patch_input_conv(model, new_in_chans=IN_CHANS):
+    old_conv = model.embeddings.patch_embeddings.projection
+    new_conv = nn.Conv2d(
+        in_channels=new_in_chans,
+        out_channels=old_conv.out_channels,
+        kernel_size=old_conv.kernel_size,
+        stride=old_conv.stride,
+        padding=old_conv.padding
+    )
+
+    with torch.no_grad():
+        # Option 1: Copy weights from 3 channels to the first 3, init rest
+        new_conv.weight[:, :3] = old_conv.weight
+        new_conv.weight[:, 3:] = old_conv.weight[:, :1].repeat(1, new_in_chans - 3, 1, 1)
+        new_conv.bias = old_conv.bias
+
+    model.embeddings.patch_embeddings.projection = new_conv
+    return model
 
 def train_unet(dataset, loss_fn, epochs=5, batch_size=8, lr=1e-3):
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-    model = UNet(in_channels=8, out_channels=N_CLS)
+    model = UNet(in_channels=IN_CHANS, out_channels=N_CLS)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
@@ -36,9 +61,20 @@ def train_unet(dataset, loss_fn, epochs=5, batch_size=8, lr=1e-3):
 
     return model
 
-def train_ViT(dataset, loss_fn, epochs=5, batch_size=8, lr=1e-3):
+def train_ViT(dataset, loss_fn, epochs=5, batch_size=8, lr=1e-3, from_pretrained=True):
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-    model = CustomViT(
+
+    if from_pretrained:
+        model = CustomPretrainedViT(
+            img_size=160,
+            patch_size=16,
+            in_chans=3,
+            num_classes=5,
+            model_name_or_path=PRETRAINED_VIT_PATH
+        )
+
+    else:
+        model = CustomViT(
         img_size=160,
         patch_size=16,
         in_chans=8,
@@ -46,7 +82,9 @@ def train_ViT(dataset, loss_fn, epochs=5, batch_size=8, lr=1e-3):
         depth=12,          # ViT-B=12, ViT-L=24
         num_heads=12,
         num_classes=N_CLS     
-    )
+        )
+        print("Loaded UNTRAINED ViT model")
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
@@ -76,7 +114,7 @@ if __name__ == "__main__":
     loss = JaccardLoss()
     # use_array = False
     use_patches = True
-
+    
     # if use_array:
         # x_path = os.path.join(DATA_DIR, f"x_trn_{N_CLS}.npy")
         # y_path = os.path.join(DATA_DIR, f"y_trn_{N_CLS}.npy")
@@ -89,8 +127,15 @@ if __name__ == "__main__":
         image_dir = os.path.join(DATA_DIR, "processed/train/images")
         mask_dir = os.path.join(DATA_DIR, "processed/train/masks")
         dataset = DSTLDataset(image_dir, mask_dir)
-
+    
     print(f"Dataset size: {len(dataset)}")
-    trained_unet = train_unet(dataset, loss_fn=loss)
-    trained_ViT = train_ViT(dataset, loss_fn=loss)
 
+    if args.train_models=="all" :
+        trained_unet = train_unet(dataset, loss_fn=loss)
+        trained_ViT = train_ViT(dataset, loss_fn=loss)
+    elif args.train_models=="vit":
+        trained_ViT = train_ViT(dataset, loss_fn=loss)
+    elif args.train_models=="unet":
+        trained_unet = train_unet(dataset, loss_fn=loss)
+    else:
+        print("unrecognized model.")
