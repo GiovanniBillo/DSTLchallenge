@@ -2,11 +2,11 @@ import os
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-from src.config import DATA_DIR, N_CLS
+from src.config import DATA_DIR, N_CLS, PATCH_SIZE
 import random
 
 class DSTLPatchFromFolderDataset(Dataset):
-    def __init__(self, image_dir, mask_dir, patch_size=160, thresholds=None, augment=True, n_samples=10000):
+    def __init__(self, image_dir, mask_dir, patch_size=PATCH_SIZE, thresholds=None, augment=True, n_samples=10000):
         self.image_dir = image_dir
         self.mask_dir = mask_dir
         self.patch_size = patch_size

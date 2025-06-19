@@ -13,5 +13,8 @@ SB = pd.read_csv(os.path.join(RAW_DATA_DIR, 'sample_submission.csv'))
 ISZ = 160
 smooth = 1e-12
 
+IMG_SIZE=224 # try to accomodate with  pretrained visual transformer
+TRAIN_IMG_SIZE=400
+PATCH_SIZE=16
 IN_CHANS=8
 PRETRAINED_VIT_PATH='google/vit-base-patch16-224-in21k'

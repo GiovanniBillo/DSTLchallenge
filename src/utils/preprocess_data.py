@@ -20,7 +20,7 @@ import shapely.wkt
 import shapely.affinity
 from collections import defaultdict
 
-from src.config import DATA_DIR, N_CLS, RAW_DATA_DIR, DF, GS, SB, ISZ, smooth
+from src.config import DATA_DIR, N_CLS, RAW_DATA_DIR, DF, GS, SB, ISZ, smooth, TRAIN_IMG_SIZE
 
 def _convert_coordinates_to_raster(coords, img_size, xymax):    
     if DEBUG_MODE:
@@ -151,8 +151,6 @@ def M(image_id):
     img = np.rollaxis(img, 0, 3)
     return img
 
-# TODO: images appear weird because of 8 spectral channels
-# how to make them appear normal?
 def M3(image_id):    
     if DEBUG_MODE:
         print(f">> M called with: image_id={repr(image_id)}")
@@ -162,6 +160,7 @@ def M3(image_id):
     img = np.rollaxis(img, 0, 3)
     return img
 
+# TODO: take in more images for training!
 def stretch_n(bands, lower_percent=5, higher_percent=95):    
     if DEBUG_MODE:
         print(f">> stretch_n called with: bands={repr(bands)}, lower_percent={repr(lower_percent)}, higher_percent={repr(higher_percent)}")
@@ -181,25 +180,25 @@ def stretch_n(bands, lower_percent=5, higher_percent=95):
     return out.astype(np.float32)
 
 
-
-
-
 def stick_all_train():    
     if DEBUG_MODE:
         print(f">> stick_all_train called with: ")
 
 
-    # s = 835
-    s = 400
+    s = TRAIN_IMG_SIZE 
+    # s = 400
+    
+    n_pixels = 5 
 
-    x = np.zeros((5 * s, 5 * s, 8))
-    y = np.zeros((5 * s, 5 * s, N_CLS))
+    x = np.zeros((n_pixels * s, n_pixels * s, 8))
+    y = np.zeros((n_pixels * s, n_pixels * s, N_CLS))
 
     ids = sorted(DF.ImageId.unique())
+    print("IDS:", ids)
     print (len(ids))
-    for i in range(5):
-        for j in range(5):
-            id = ids[5 * i + j]
+    for i in range(n_pixels):
+        for j in range(n_pixels):
+            id = ids[n_pixels * i + j]
             print(id)
             img = M(id)
             img = stretch_n(img)
@@ -218,7 +217,8 @@ def stick_single_train():
     if DEBUG_MODE:
         print(f">> stick_all_train called")
 
-    s = 400
+    s = TRAIN_IMG_SIZE 
+    # s = 400
 
     # Create output directories
     image_out_dir = os.path.join(DATA_DIR, "processed/train/images")

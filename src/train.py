@@ -4,36 +4,19 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import numpy as np
-from src.config import DATA_DIR, N_CLS, PRETRAINED_VIT_PATH, IN_CHANS
+import pickle
+
+from src.config import DATA_DIR, N_CLS, PRETRAINED_VIT_PATH, IN_CHANS, IMG_SIZE, PATCH_SIZE
 from src.models.unet import UNet
 from src.datasets.dstl_dataset import DSTLDataset, DSTLDatasetFromArrays, DSTLPatchFromFolderDataset
 from src.utils.loss_utils import JaccardLoss, BCEJaccardLoss # 2 alternatives for loss, have to see which one is better
 from src.models.CustomViT import CustomViT, CustomPretrainedViT
 import argparse
 
+
 parser=argparse.ArgumentParser(description="argument parser for train")
 parser.add_argument("train_models")
 args=parser.parse_args()
-
-# function to modify ViT first layer to accept 8-channel images instead of only 3 !!! experimental
-def patch_input_conv(model, new_in_chans=IN_CHANS):
-    old_conv = model.embeddings.patch_embeddings.projection
-    new_conv = nn.Conv2d(
-        in_channels=new_in_chans,
-        out_channels=old_conv.out_channels,
-        kernel_size=old_conv.kernel_size,
-        stride=old_conv.stride,
-        padding=old_conv.padding
-    )
-
-    with torch.no_grad():
-        # Option 1: Copy weights from 3 channels to the first 3, init rest
-        new_conv.weight[:, :3] = old_conv.weight
-        new_conv.weight[:, 3:] = old_conv.weight[:, :1].repeat(1, new_in_chans - 3, 1, 1)
-        new_conv.bias = old_conv.bias
-
-    model.embeddings.patch_embeddings.projection = new_conv
-    return model
 
 def train_unet(dataset, loss_fn, epochs=5, batch_size=8, lr=1e-3):
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
@@ -59,6 +42,11 @@ def train_unet(dataset, loss_fn, epochs=5, batch_size=8, lr=1e-3):
 
         print(f"Epoch {epoch+1} Loss: {total_loss:.4f}")
 
+    # Save model weights
+    os.makedirs("models", exist_ok=True)
+    torch.save(model.state_dict(), "models/unet_latest.pt")
+    print("Saved UNet weights to models/unet_latest.pt")
+
     return model
 
 def train_ViT(dataset, loss_fn, epochs=5, batch_size=8, lr=1e-3, from_pretrained=True):
@@ -66,17 +54,18 @@ def train_ViT(dataset, loss_fn, epochs=5, batch_size=8, lr=1e-3, from_pretrained
 
     if from_pretrained:
         model = CustomPretrainedViT(
-            img_size=160,
-            patch_size=16,
-            in_chans=3,
-            num_classes=5,
+            img_size=IMG_SIZE,
+            patch_size=PATCH_SIZE,
+            in_chans=IN_CHANS,
+            num_classes=N_CLS,
             model_name_or_path=PRETRAINED_VIT_PATH
         )
 
+        print("Loaded TRAINED ViT model")
     else:
         model = CustomViT(
         img_size=160,
-        patch_size=16,
+        patch_size=PATCH_SIZE,
         in_chans=8,
         embed_dim=768,     # Base size; use 1024 for ViT-L
         depth=12,          # ViT-B=12, ViT-L=24
@@ -106,6 +95,11 @@ def train_ViT(dataset, loss_fn, epochs=5, batch_size=8, lr=1e-3, from_pretrained
 
         print(f"Epoch {epoch+1} Loss: {total_loss:.4f}")
 
+    # Save model weights
+    os.makedirs("models", exist_ok=True)
+    torch.save(model.state_dict(), "models/vit_latest.pt")
+    print("Saved ViT weights to models/vit_latest.pt")
+
     return model
 
 
@@ -113,7 +107,7 @@ if __name__ == "__main__":
     # Choose dataset type here:
     loss = JaccardLoss()
     # use_array = False
-    use_patches = True
+    use_patches = False 
     
     # if use_array:
         # x_path = os.path.join(DATA_DIR, f"x_trn_{N_CLS}.npy")
